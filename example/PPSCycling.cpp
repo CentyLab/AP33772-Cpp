@@ -25,15 +25,21 @@ void setup()
   pinMode(25, OUTPUT); //Built in LED
   pinMode(23, OUTPUT); //Load Switch
   digitalWrite(23, HIGH);
+  delay(2000);
 }
 
 void loop()
 {
   // put your main code here, to run repeatedly:
-  for (int i = 4200; i < 12400; i = i + 40)
+  for (int i = 4200; i < 21000; i = i + 40)
   {
     usbpd.setVoltage(i);
     delay(150);
+    Serial.print("Set Voltage to (mV): ");
+    Serial.println(i);
+    Serial.print("Read voltage (mV): ");
+    Serial.println(usbpd.readVoltage());
+    Serial.print("Read current (mA): ");
     Serial.println(usbpd.readCurrent());
     if (state == 0)
     {
@@ -45,6 +51,5 @@ void loop()
       digitalWrite(25, LOW);
       state = 0;
     }
-//Program is crashing and reboot the power supply when reading output current
   }
 }
