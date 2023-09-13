@@ -7,6 +7,11 @@ Main feature of the library:
 + Current reading
 + NTC temperature reading
 
+## Usage
+Drag and drop file from "Compiled for PicoPD" to test out the code without compiling. However, some code does has load switch turn on by default. Ensure your connected device can handle the voltage at VBUS.
+
+Else if you would like to compile your own code, ensure to install [arlephilhower's Pico Core](https://github.com/earlephilhower/arduino-pico#installation) so that you can call Wire.setSCL() and Wire.setSDA()
+
 ## On going
 - [ ] Complete safety parameters configuration
 - [ ] Mask setting
