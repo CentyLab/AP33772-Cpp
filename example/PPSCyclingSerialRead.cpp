@@ -18,20 +18,19 @@ void setup()
   Wire.begin();
 
   Serial.begin(115200);
-  delay(500);
-  usbpd.begin(); // Start pulling the PDOs from power supply
+  delay(500); //Delay so that IC can boot up
+  usbpd.begin(); // Start pulling the PDOs from the power supply
 
   pinMode(25, OUTPUT); //Built in LED
   pinMode(23, OUTPUT); //Load Switch
-  digitalWrite(23, HIGH);
-  delay(2000);
+  digitalWrite(23, HIGH); //Turn on Load Switch
+  delay(2000); //Random delay, optional
   usbpd.printPDO();
   
 }
 
 void loop()
 {
-  //put your main code here, to run repeatedly:
   for (int i = 4200; i < 20000; i = i + 40)
   {
     
@@ -42,6 +41,8 @@ void loop()
     Serial.println(usbpd.readVoltage());
     Serial.print("Read current (mA): ");
     Serial.println(usbpd.readCurrent());
+
+    //Blinking LED (25)
     if (state == 0)
     {
       digitalWrite(25, HIGH);
@@ -52,6 +53,5 @@ void loop()
       digitalWrite(25, LOW);
       state = 0;
     }
-//Program is crashing and reboot the power supply when reading output current
   }
 }
