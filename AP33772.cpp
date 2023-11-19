@@ -281,6 +281,22 @@ int AP33772::readCurrent()
 }
 
 /**
+ * @brief Read maximum VBUS current
+ * @return current in mA
+ */
+int AP33772::getMaxCurrent() const
+{
+    if (indexPDO == PPSindex)
+    {
+        return pdoData[PPSindex].pps.maxCurrent * 50;
+    }
+    else
+    {
+        return pdoData[indexPDO].fixed.maxCurrent * 10;
+    }
+}
+
+/**
  * @brief Read NTC temperature
  * @return tempearture in C
  */

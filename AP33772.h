@@ -164,6 +164,7 @@ public:
   void writeRDO();
   int readVoltage();
   int readCurrent();
+  int getMaxCurrent() const;
   int readTemp();
   void printPDO();
   void reset();
