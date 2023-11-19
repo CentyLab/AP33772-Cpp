@@ -85,18 +85,15 @@ void AP33772::setVoltage(int targetVoltage)
     Step 3: Compare found PDOs votlage and PPS max voltage
     */
     byte tempIndex = 0;
-    if (existPPS)
+    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
     {
-        if ((pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage)) // PPS exist, voltage satify
-        {
-            indexPDO = PPSindex;
-            reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
-            rdoData.pps.objPosition = PPSindex + 1; // index 1
-            rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
-            rdoData.pps.voltage = reqPpsVolt;
-            writeRDO();
-            return;
-        }
+        indexPDO = PPSindex;
+        reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
+        rdoData.pps.objPosition = PPSindex + 1; // index 1
+        rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
+        rdoData.pps.voltage = reqPpsVolt;
+        writeRDO();
+        return;
     }
     else
     {
@@ -278,6 +275,22 @@ int AP33772::readCurrent()
 {
     i2c_read(AP33772_ADDRESS, CMD_CURRENT, 1);
     return readBuf[0] * 16; // I2C read return 24mA/LSB
+}
+
+/**
+ * @brief Read maximum VBUS current
+ * @return current in mA
+ */
+int AP33772::getMaxCurrent() const
+{
+    if (indexPDO == PPSindex)
+    {
+        return pdoData[PPSindex].pps.maxCurrent * 50;
+    }
+    else
+    {
+        return pdoData[indexPDO].fixed.maxCurrent * 10;
+    }
 }
 
 /**
