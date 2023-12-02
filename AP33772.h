@@ -160,7 +160,8 @@ public:
   void setMaxCurrent(int targetMaxCurrent); // Unit in mA
   void setNTC(int TR25, int TR50, int TR75, int TR100);
   void setDeratingTemp(int temperature);
-  void setMask(AP33772_MASK flag, bool state);
+  void setMask(AP33772_MASK flag);
+  void clearMask(AP33772_MASK flag);
   void writeRDO();
   int readVoltage();
   int readCurrent();

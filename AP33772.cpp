@@ -199,12 +199,21 @@ void AP33772::setDeratingTemp(int temperature)
     i2c_write(AP33772_ADDRESS, CMD_DRTHR, 1);
 }
 
-void AP33772::setMask(AP33772_MASK flag, bool state)
+void AP33772::setMask(AP33772_MASK flag)
 {
     // First read in what is currently in the MASK
     i2c_read(AP33772_ADDRESS, CMD_MASK, 1);
-    writeBuf[0] = flag | readBuf[0]; // WRONG!, will not be able to turn thing off
-    delay(10);                       // Short break between read/write
+    writeBuf[0] = readBuf[0] | flag;
+    delay(5);                       // Short break between read/write
+    i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
+}
+
+void AP33772::clearMask(AP33772_MASK flag)
+{
+    // First read in what is currently in the MASK
+    i2c_read(AP33772_ADDRESS, CMD_MASK, 1);
+    writeBuf[0] = readBuf[0] & ~flag;
+    delay(5);                       // Short break between read/write
     i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
 }
 
