@@ -6,6 +6,8 @@ Main feature of the library:
 + Voltage reading
 + Current reading
 + NTC temperature reading
++ Set Over Current Threshold (if sense resistor is available)
++ Set Over Temperature Threshold
 + Set/clear mask bits
 
 ## Usage

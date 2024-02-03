@@ -199,6 +199,32 @@ void AP33772::setDeratingTemp(int temperature)
     i2c_write(AP33772_ADDRESS, CMD_DRTHR, 1);
 }
 
+/**
+ * @brief Set Over Current Protection threshold
+ *          Default is 0 mA. Remember to change this before enable OCP_EN flag
+ * @param OCP_current (unit in mA)
+ */
+void AP33772::setOCPTHR(int OCP_current)
+{
+    writeBuf[0] = OCP_current/50; //50mA LSB
+    i2c_write(AP33772_ADDRESS, CMD_OCPTHR, 1);
+}
+
+/**
+ * @brief Set Over Temperature Protection threshold
+ *          Default is 120C. Remember to set OTP_EN flag
+ * @param OTP_temperature (unit in C)
+ */
+void AP33772::setOTPTHR(int OTP_temperature)
+{
+    writeBuf[0] = OTP_temperature;
+    i2c_write(AP33772_ADDRESS, CMD_OTPTHR, 1);
+}
+
+/**
+ * @brief Set MASK.
+ * Example: usbpd.setMask(OVP_EN)
+ */
 void AP33772::setMask(AP33772_MASK flag)
 {
     // First read in what is currently in the MASK
@@ -208,6 +234,10 @@ void AP33772::setMask(AP33772_MASK flag)
     i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
 }
 
+/**
+ * @brief Clear MASK.
+ * Example: usbpd.clearMask(OVP_EN)
+ */
 void AP33772::clearMask(AP33772_MASK flag)
 {
     // First read in what is currently in the MASK
@@ -215,6 +245,7 @@ void AP33772::clearMask(AP33772_MASK flag)
     writeBuf[0] = readBuf[0] & ~flag;
     delay(5);                       // Short break between read/write
     i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
+
 }
 
 void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
@@ -326,6 +357,7 @@ void AP33772::reset()
 
 /**
  * @brief Debug code to quickly check power supply profile PDOs
+ * dump all PDOs profile into Serial port
  */
 void AP33772::printPDO()
 {
