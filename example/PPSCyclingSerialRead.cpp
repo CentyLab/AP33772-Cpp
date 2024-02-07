@@ -18,8 +18,8 @@ void setup()
   Wire.begin();
 
   Serial.begin(115200);
-  delay(500); //Delay so that IC can boot up
-  usbpd.begin(); // Start pulling the PDOs from the power supply
+  delay(1000); 		// Delay is need for the IC to obtain PDOs
+  usbpd.begin(); 	// Start pulling the PDOs from power supply
 
   pinMode(25, OUTPUT); //Built in LED
   pinMode(23, OUTPUT); //Load Switch
@@ -33,7 +33,7 @@ void loop()
 {
   for (int i = 4200; i < 20000; i = i + 40)
   {
-    
+    usbpd.setVoltage(i);
     delay(150);
     Serial.print("Set Voltage to (mV): ");
     Serial.println(i);
