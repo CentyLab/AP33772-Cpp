@@ -168,15 +168,16 @@ void AP33772::setMaxCurrent(int targetMaxCurrent)
 /**
  * @brief One function to set max votlage and max current.
  * Allow the charger to auto function as CV or CC mode depend on load.
- * Source must have PPS profile, else function will not work
+ * Source must have PPS profile, else function will not work. Lowest current limit in PPS mode is 1A (USB PD spec)
  * @param targetVoltage in mV 
  * @param targetmaxCurrent in mA
  */ 
 void AP33772::setVoltageCurrent (int targetVoltage, int targetMaxCurrent)
 {
-    if((existPPS == 1)
+    if((existPPS == 1) //Big sanity check
         && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage)
-        && (pdoData[PPSindex].pps.minVoltage * 100 >= targetVoltage))
+        && (pdoData[PPSindex].pps.minVoltage * 100 >= targetVoltage)
+        && (targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent*50))
     {
         indexPDO = PPSindex;
         reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
