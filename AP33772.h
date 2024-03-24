@@ -158,6 +158,7 @@ public:
   void begin();
   void setVoltage(int targetVoltage); // Unit in mV
   void setMaxCurrent(int targetMaxCurrent); // Unit in mA
+  void setVoltageCurrent (int targetVoltage, int targetMaxCurrent); // Unit in mV and mA
   void setNTC(int TR25, int TR50, int TR75, int TR100);
   void setDeratingTemp(int temperature);
   void setOCPTHR(int OCP_current);
