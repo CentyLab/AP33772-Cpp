@@ -168,9 +168,11 @@ public:
   int readVoltage();
   int readCurrent();
   int getMaxCurrent() const;
+  bool getExistPPS() const;
   int readTemp();
   void printPDO();
   void reset();
+
 
 private:
   void i2c_read(byte slvAddr, byte cmdAddr, byte len);

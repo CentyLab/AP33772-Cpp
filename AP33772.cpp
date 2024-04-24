@@ -334,6 +334,14 @@ int AP33772::getMaxCurrent() const
 }
 
 /**
+ * @brief check if PPS is supported from supply
+ * @return true if PPS is supported, else false
+ */
+bool AP33772::getExistPPS() const
+{
+    return existPPS;
+}
+/**
  * @brief Read NTC temperature
  * @return tempearture in C
  */
