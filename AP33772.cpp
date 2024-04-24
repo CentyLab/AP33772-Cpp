@@ -74,7 +74,8 @@ void AP33772::begin()
 }
 
 /**
- * @brief Set VBUS voltage
+ * @brief Set VBUS voltage. Current limit is set to max.
+ * Pioritize PPS mode over fixed PDO.
  * @param targetVoltage in mV
  */
 void AP33772::setVoltage(int targetVoltage)
@@ -127,18 +128,19 @@ void AP33772::setVoltage(int targetVoltage)
 }
 
 /**
- * @brief Set max current before tripping at wall plug
+ * @brief Set max current. This will cap the voltage in PPS mode
+ * Fixed PDO mode current limit behavior is not tested.
  * @param targetMaxCurrent in mA
  */
 void AP33772::setMaxCurrent(int targetMaxCurrent)
 {
     /*
-    Step 1: Check if current profile is PPS, check if max current is lower than request
+    Step 1: Check if current profile is PPS, check if PSS max current is lower than request
         If yes, set new max current
-        If no, report fault
-    Step 2: If profile is PDO, check if max current is lower than request
+        If no, do nothing
+    Step 2: If profile is PDO, check if PDO max current is lower than request
         If yes, set new max current
-        If no, report fault
+        If no, do nothing
     */
    if(indexPDO == PPSindex)
    {
@@ -162,6 +164,31 @@ void AP33772::setMaxCurrent(int targetMaxCurrent)
     else{} // Do nothing
    }
 }
+
+/**
+ * @brief One function to set max votlage and max current.
+ * Allow the charger to auto function as CV or CC mode depend on load.
+ * Source must have PPS profile, else function will not work. Lowest current limit in PPS mode is 1A (USB PD spec)
+ * @param targetVoltage in mV 
+ * @param targetmaxCurrent in mA
+ */ 
+void AP33772::setVoltageCurrent (int targetVoltage, int targetMaxCurrent)
+{
+    if((existPPS == 1) //Big sanity check
+        && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage)
+        && (pdoData[PPSindex].pps.minVoltage * 100 >= targetVoltage)
+        && (targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent*50))
+    {
+        indexPDO = PPSindex;
+        reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
+        rdoData.pps.objPosition = PPSindex + 1; // index 1
+        rdoData.pps.opCurrent = targetMaxCurrent/50; //     50mA/LSB
+        rdoData.pps.voltage = reqPpsVolt;
+        writeRDO();
+        return;
+    }
+}
+
 
 /**
  * @brief Set resistance value of 10K NTC at 25C, 50C, 75C and 100C.
