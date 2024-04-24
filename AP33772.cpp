@@ -81,9 +81,9 @@ void AP33772::begin()
 void AP33772::setVoltage(int targetVoltage)
 {
     /*
-    Step 1: Check if PPS can satify request voltage
+    Step 1: Check if PPS can satisfy request voltage
     Step 2: Scan PDOs to see what is the lower closest voltage to request
-    Step 3: Compare found PDOs votlage and PPS max voltage
+    Step 3: Compare found PDOs voltage and PPS max voltage
     */
     byte tempIndex = 0;
     if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
@@ -104,7 +104,7 @@ void AP33772::setVoltage(int targetVoltage)
             if (pdoData[i].fixed.voltage * 50 <= targetVoltage) 
                 tempIndex = i;
         }
-        // Step 3: Compare found PDOs votlage and PPS max voltage
+        // Step 3: Compare found PDOs voltage and PPS max voltage
         if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100) 
         {
             indexPDO = tempIndex;
@@ -123,6 +123,44 @@ void AP33772::setVoltage(int targetVoltage)
             rdoData.pps.voltage = reqPpsVolt;
             writeRDO();
             return;
+        }
+    }
+}
+
+/**
+ * @brief Find max supported current for a specific voltage.
+ * Pioritize PPS mode over fixed PDO.
+ * @param targetVoltage in mV
+ * @returns max supported current in mA
+ */
+int AP33772::getMaxCurrentForVoltage(int targetVoltage)
+{
+    /*
+    Step 1: Check if PPS can satisfy request voltage
+    Step 2: Scan PDOs to see what is the lower closest voltage to request
+    Step 3: Compare found PDOs voltage and PPS max voltage
+    */
+    byte tempIndex = 0;
+    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
+    {
+        return pdoData[PPSindex].pps.maxCurrent*10;  //TODO SHOULD THIS BE *50 instead?
+    }
+    else
+    {
+        // Step 2: Scan PDOs to see what is the lower closest voltage to request
+        for (byte i = 0; i < numPDO - existPPS; i++)
+        {
+            if (pdoData[i].fixed.voltage * 50 <= targetVoltage) 
+                tempIndex = i;
+        }
+        // Step 3: Compare found PDOs voltage and PPS max voltage
+        if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100) 
+        {
+            return  pdoData[tempIndex].fixed.maxCurrent*10;
+        }
+        else // If PPS voltage larger or equal to Fixed PDO
+        {
+            return pdoData[PPSindex].pps.maxCurrent*10; //TODO SHOULD THIS BE *50 instead?
         }
     }
 }

@@ -169,6 +169,7 @@ public:
   int readVoltage();
   int readCurrent();
   int getMaxCurrent() const;
+  int getMaxCurrentForVoltage(int targetVoltage)
   bool getExistPPS() const;
   int readTemp();
   void printPDO();
