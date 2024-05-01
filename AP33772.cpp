@@ -143,7 +143,7 @@ int AP33772::getMaxCurrentForVoltage(int targetVoltage)
     byte tempIndex = 0;
     if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
     {
-        return pdoData[PPSindex].pps.maxCurrent*10;  //TODO SHOULD THIS BE *50 instead?
+        return pdoData[PPSindex].pps.maxCurrent*50;  //TODO SHOULD THIS BE *50 instead?
     }
     else
     {
@@ -160,7 +160,7 @@ int AP33772::getMaxCurrentForVoltage(int targetVoltage)
         }
         else // If PPS voltage larger or equal to Fixed PDO
         {
-            return pdoData[PPSindex].pps.maxCurrent*10; //TODO SHOULD THIS BE *50 instead?
+            return pdoData[PPSindex].pps.maxCurrent*50; //TODO SHOULD THIS BE *50 instead?
         }
     }
 }
@@ -388,7 +388,7 @@ int AP33772::readCurrent()
  */
 int AP33772::getMaxCurrent() const
 {
-    if (indexPDO == PPSindex)
+    if (existPPS && indexPDO == PPSindex)
     {
         return pdoData[PPSindex].pps.maxCurrent * 50;
     }
