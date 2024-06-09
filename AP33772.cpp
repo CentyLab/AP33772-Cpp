@@ -321,16 +321,16 @@ void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
         readBuf[i] = 0;
     }
     byte i = 0;
-    Wire.beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
-    Wire.write(cmdAddr);             // sets the command register
-    Wire.endTransmission();          // stop transmitting
+    _i2cPort->beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
+    _i2cPort->write(cmdAddr);             // sets the command register
+    _i2cPort->endTransmission();          // stop transmitting
 
-    Wire.requestFrom(slvAddr, len); // request len bytes from peripheral device
-    if (len <= Wire.available())
+    _i2cPort->requestFrom(slvAddr, len); // request len bytes from peripheral device
+    if (len <= _i2cPort->available())
     { // if len bytes were received
-        while (Wire.available())
+        while (_i2cPort->available())
         {
-            readBuf[i] = (byte)Wire.read();
+            readBuf[i] = (byte)_i2cPort->read();
             i++;
         }
     }
@@ -338,10 +338,10 @@ void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
 
 void AP33772::i2c_write(byte slvAddr, byte cmdAddr, byte len)
 {
-    Wire.beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
-    Wire.write(cmdAddr);             // sets the command register
-    Wire.write(writeBuf, len);       // write data with len
-    Wire.endTransmission();          // stop transmitting
+    _i2cPort->beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
+    _i2cPort->write(cmdAddr);             // sets the command register
+    _i2cPort->write(writeBuf, len);       // write data with len
+    _i2cPort->endTransmission();          // stop transmitting
 
     // clear readBuffer
     for (byte i = 0; i < WRITE_BUFF_LENGTH; i++)

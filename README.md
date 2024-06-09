@@ -10,10 +10,16 @@ Main feature of the library:
 + Set Over Temperature Threshold
 + Set/clear mask bits
 
-## Usage
+## Using Wire1
+The RP2040 has two different I2C physical driver, `Wire` (I2C0) and `Wire1`(I2C1). The default channel is selected to be `Wire` in AP33772 Constructor but one can overwrite it with:
+
+```
+AP33772 usbpd(Wire1);
+```
+
+## Example code
 Drag and drop file from "Compiled for PicoPD" to test out the code without compiling. However, some code does has load switch turn on by default. Ensure your connected device can handle the voltage at VBUS.
 
 Else if you would like to compile your own code, ensure to install [arlephilhower's Pico Core](https://github.com/earlephilhower/arduino-pico#installation) so that you can call Wire.setSCL() and Wire.setSDA()
-
 
 
