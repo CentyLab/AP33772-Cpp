@@ -2,6 +2,7 @@
  * Created 11 April 2022
  * Added class and class functions by VicentN for PicoPD evaluation board
  * Created 8 August 2023
+ * Updated 6 Oct 2024 - Expose more internal class variable and include better PPS functions
  */
 
 #include "AP33772.h"
@@ -74,22 +75,42 @@ void AP33772::begin()
 }
 
 /**
- * @brief Set VBUS voltage. Current limit is set to max.
- * Pioritize PPS mode over fixed PDO.
+ * @brief Set VBUS voltage and max current
+ * Current will automatically be in limit mode
+ * @param targetVoltage, targetCurrent, - mV and mA
+ */
+void AP33772::setSupplyVoltageCurrent(int targetVoltage, int targetCurrent)
+{
+    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
+    {
+        indexPDO = PPSindex;
+        reqPpsVolt = targetVoltage / 20;        // Unit in 20mV/LBS
+        rdoData.pps.objPosition = PPSindex + 1; // index 1
+        // rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
+        rdoData.pps.opCurrent = targetCurrent / 50; // Current limit
+        rdoData.pps.voltage = reqPpsVolt;
+        writeRDO();
+        return;
+    }
+}
+
+/**
+ * @brief Set VBUS voltage
+ * Current is set to MAX all the time
  * @param targetVoltage in mV
  */
 void AP33772::setVoltage(int targetVoltage)
 {
     /*
-    Step 1: Check if PPS can satisfy request voltage
+    Step 1: Check if PPS can satify request voltage
     Step 2: Scan PDOs to see what is the lower closest voltage to request
-    Step 3: Compare found PDOs voltage and PPS max voltage
+    Step 3: Compare found PDOs votlage and PPS max voltage
     */
     byte tempIndex = 0;
     if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
     {
         indexPDO = PPSindex;
-        reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
+        reqPpsVolt = targetVoltage / 20;        // Unit in 20mV/LBS
         rdoData.pps.objPosition = PPSindex + 1; // index 1
         rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
         rdoData.pps.voltage = reqPpsVolt;
@@ -101,11 +122,11 @@ void AP33772::setVoltage(int targetVoltage)
         // Step 2: Scan PDOs to see what is the lower closest voltage to request
         for (byte i = 0; i < numPDO - existPPS; i++)
         {
-            if (pdoData[i].fixed.voltage * 50 <= targetVoltage) 
+            if (pdoData[i].fixed.voltage * 50 <= targetVoltage)
                 tempIndex = i;
         }
-        // Step 3: Compare found PDOs voltage and PPS max voltage
-        if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100) 
+        // Step 3: Compare found PDOs votlage and PPS max voltage
+        if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100)
         {
             indexPDO = tempIndex;
             rdoData.fixed.objPosition = tempIndex + 1; // Index 0 to Index 1
@@ -118,7 +139,7 @@ void AP33772::setVoltage(int targetVoltage)
         {
             indexPDO = PPSindex;
             reqPpsVolt = pdoData[PPSindex].pps.maxVoltage * 5; // Convert unit: 100mV -> 20mV
-            rdoData.pps.objPosition = PPSindex + 1; // index 1
+            rdoData.pps.objPosition = PPSindex + 1;            // index 1
             rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
             rdoData.pps.voltage = reqPpsVolt;
             writeRDO();
@@ -128,105 +149,68 @@ void AP33772::setVoltage(int targetVoltage)
 }
 
 /**
- * @brief Find max supported current for a specific voltage.
- * Pioritize PPS mode over fixed PDO.
- * @param targetVoltage in mV
- * @returns max supported current in mA
+ * @brief Request PDO profile.
+ * @param PDOindex start from index 0 to (PDONum - 1) if no PPS, (PDONum -2) if PPS found
  */
-int AP33772::getMaxCurrentForVoltage(int targetVoltage)
+void AP33772::setPDO(uint8_t PDOindex)
 {
-    /*
-    Step 1: Check if PPS can satisfy request voltage
-    Step 2: Scan PDOs to see what is the lower closest voltage to request
-    Step 3: Compare found PDOs voltage and PPS max voltage
-    */
-    byte tempIndex = 0;
-    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
-    {
-        return pdoData[PPSindex].pps.maxCurrent*50;  //TODO SHOULD THIS BE *50 instead?
-    }
+    uint8_t guarding;
+
+    if (PPSindex == 1)
+        {guarding = numPDO - 2;}
     else
+        guarding = numPDO - 1; // Example array[4] only exist index 0,1,2,3
+
+    if (PDOindex <= guarding)
     {
-        // Step 2: Scan PDOs to see what is the lower closest voltage to request
-        for (byte i = 0; i < numPDO - existPPS; i++)
-        {
-            if (pdoData[i].fixed.voltage * 50 <= targetVoltage) 
-                tempIndex = i;
-        }
-        // Step 3: Compare found PDOs voltage and PPS max voltage
-        if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100) 
-        {
-            return  pdoData[tempIndex].fixed.maxCurrent*10;
-        }
-        else // If PPS voltage larger or equal to Fixed PDO
-        {
-            return pdoData[PPSindex].pps.maxCurrent*50; //TODO SHOULD THIS BE *50 instead?
-        }
+        rdoData.fixed.objPosition = PDOindex + 1; // Index 0 to Index 1
+        rdoData.fixed.maxCurrent = pdoData[PDOindex].fixed.maxCurrent;
+        rdoData.fixed.opCurrent = pdoData[PDOindex].fixed.maxCurrent;
+        writeRDO();
     }
 }
 
 /**
- * @brief Set max current. This will cap the voltage in PPS mode
- * Fixed PDO mode current limit behavior is not tested.
+ * @brief Set max current before tripping at wall plug
  * @param targetMaxCurrent in mA
  */
 void AP33772::setMaxCurrent(int targetMaxCurrent)
 {
     /*
-    Step 1: Check if current profile is PPS, check if PSS max current is lower than request
+    Step 1: Check if current profile is PPS, check if max current is lower than request
         If yes, set new max current
-        If no, do nothing
-    Step 2: If profile is PDO, check if PDO max current is lower than request
+        If no, report fault
+    Step 2: If profile is PDO, check if max current is lower than request
         If yes, set new max current
-        If no, do nothing
+        If no, report fault
     */
-   if(indexPDO == PPSindex)
-   {
-    if(targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent*50)
+    if (indexPDO == PPSindex)
+    {
+        if (targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent * 50)
         {
-            rdoData.pps.objPosition = PPSindex + 1; // index 1
-            rdoData.pps.opCurrent = targetMaxCurrent/50; // 50mA/LBS
+            rdoData.pps.objPosition = PPSindex + 1;        // index 1
+            rdoData.pps.opCurrent = targetMaxCurrent / 50; // 50mA/LBS
             rdoData.pps.voltage = reqPpsVolt;
             writeRDO();
         }
-    else{}  // Do nothing
-   }
-   else{
-    if(targetMaxCurrent <= pdoData[indexPDO].fixed.maxCurrent*10)
+        else
+        {
+        } // Do nothing
+    }
+    else
     {
-            rdoData.fixed.objPosition = indexPDO + 1; // Index 0 to Index 1
-            rdoData.fixed.maxCurrent = targetMaxCurrent/10; // 10mA/LBS
-            rdoData.fixed.opCurrent = targetMaxCurrent/10; // 10mA/LBS
+        if (targetMaxCurrent <= pdoData[indexPDO].fixed.maxCurrent * 10)
+        {
+            rdoData.fixed.objPosition = indexPDO + 1;         // Index 0 to Index 1
+            rdoData.fixed.maxCurrent = targetMaxCurrent / 10; // 10mA/LBS
+            rdoData.fixed.opCurrent = targetMaxCurrent / 10;  // 10mA/LBS
             writeRDO();
-    }
-    else{} // Do nothing
-   }
-}
-
-/**
- * @brief One function to set max votlage and max current.
- * Allow the charger to auto function as CV or CC mode depend on load.
- * Source must have PPS profile, else function will not work. Lowest current limit in PPS mode is 1A (USB PD spec)
- * @param targetVoltage in mV 
- * @param targetmaxCurrent in mA
- */ 
-void AP33772::setVoltageCurrent (int targetVoltage, int targetMaxCurrent)
-{
-    if((existPPS == 1) //Big sanity check
-        && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage)
-        && (pdoData[PPSindex].pps.minVoltage * 100 >= targetVoltage)
-        && (targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent*50))
-    {
-        indexPDO = PPSindex;
-        reqPpsVolt = targetVoltage / 20; // Unit in 20mV/LBS
-        rdoData.pps.objPosition = PPSindex + 1; // index 1
-        rdoData.pps.opCurrent = targetMaxCurrent/50; //     50mA/LSB
-        rdoData.pps.voltage = reqPpsVolt;
-        writeRDO();
-        return;
+        }
+        else
+        {
+        } // Do nothing
     }
 }
-
 
 /**
  * @brief Set resistance value of 10K NTC at 25C, 50C, 75C and 100C.
@@ -264,53 +248,22 @@ void AP33772::setDeratingTemp(int temperature)
     i2c_write(AP33772_ADDRESS, CMD_DRTHR, 1);
 }
 
-/**
- * @brief Set Over Current Protection threshold
- *          Default is 0 mA. Remember to change this before enable OCP_EN flag
- * @param OCP_current (unit in mA)
- */
-void AP33772::setOCPTHR(int OCP_current)
-{
-    writeBuf[0] = OCP_current/50; //50mA LSB
-    i2c_write(AP33772_ADDRESS, CMD_OCPTHR, 1);
-}
-
-/**
- * @brief Set Over Temperature Protection threshold
- *          Default is 120C. Remember to set OTP_EN flag
- * @param OTP_temperature (unit in C)
- */
-void AP33772::setOTPTHR(int OTP_temperature)
-{
-    writeBuf[0] = OTP_temperature;
-    i2c_write(AP33772_ADDRESS, CMD_OTPTHR, 1);
-}
-
-/**
- * @brief Set MASK.
- * Example: usbpd.setMask(OVP_EN)
- */
 void AP33772::setMask(AP33772_MASK flag)
 {
     // First read in what is currently in the MASK
     i2c_read(AP33772_ADDRESS, CMD_MASK, 1);
     writeBuf[0] = readBuf[0] | flag;
-    delay(5);                       // Short break between read/write
+    delay(5); // Short break between read/write
     i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
 }
 
-/**
- * @brief Clear MASK.
- * Example: usbpd.clearMask(OVP_EN)
- */
 void AP33772::clearMask(AP33772_MASK flag)
 {
     // First read in what is currently in the MASK
     i2c_read(AP33772_ADDRESS, CMD_MASK, 1);
     writeBuf[0] = readBuf[0] & ~flag;
-    delay(5);                       // Short break between read/write
+    delay(5); // Short break between read/write
     i2c_write(AP33772_ADDRESS, CMD_MASK, 1);
-
 }
 
 void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
@@ -321,16 +274,16 @@ void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
         readBuf[i] = 0;
     }
     byte i = 0;
-    _i2cPort->beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
-    _i2cPort->write(cmdAddr);             // sets the command register
-    _i2cPort->endTransmission();          // stop transmitting
+    Wire.beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
+    Wire.write(cmdAddr);             // sets the command register
+    Wire.endTransmission();          // stop transmitting
 
-    _i2cPort->requestFrom(slvAddr, len); // request len bytes from peripheral device
-    if (len <= _i2cPort->available())
+    Wire.requestFrom(slvAddr, len); // request len bytes from peripheral device
+    if (len <= Wire.available())
     { // if len bytes were received
-        while (_i2cPort->available())
+        while (Wire.available())
         {
-            readBuf[i] = (byte)_i2cPort->read();
+            readBuf[i] = (byte)Wire.read();
             i++;
         }
     }
@@ -338,10 +291,10 @@ void AP33772::i2c_read(byte slvAddr, byte cmdAddr, byte len)
 
 void AP33772::i2c_write(byte slvAddr, byte cmdAddr, byte len)
 {
-    _i2cPort->beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
-    _i2cPort->write(cmdAddr);             // sets the command register
-    _i2cPort->write(writeBuf, len);       // write data with len
-    _i2cPort->endTransmission();          // stop transmitting
+    Wire.beginTransmission(slvAddr); // transmit to device SLAVE_ADDRESS
+    Wire.write(cmdAddr);             // sets the command register
+    Wire.write(writeBuf, len);       // write data with len
+    Wire.endTransmission();          // stop transmitting
 
     // clear readBuffer
     for (byte i = 0; i < WRITE_BUFF_LENGTH; i++)
@@ -388,7 +341,7 @@ int AP33772::readCurrent()
  */
 int AP33772::getMaxCurrent() const
 {
-    if (existPPS && indexPDO == PPSindex)
+    if (indexPDO == PPSindex)
     {
         return pdoData[PPSindex].pps.maxCurrent * 50;
     }
@@ -398,14 +351,6 @@ int AP33772::getMaxCurrent() const
     }
 }
 
-/**
- * @brief check if PPS is supported from supply
- * @return true if PPS is supported, else false
- */
-bool AP33772::getExistPPS() const
-{
-    return existPPS;
-}
 /**
  * @brief Read NTC temperature
  * @return tempearture in C
@@ -430,7 +375,6 @@ void AP33772::reset()
 
 /**
  * @brief Debug code to quickly check power supply profile PDOs
- * dump all PDOs profile into Serial port
  */
 void AP33772::printPDO()
 {
@@ -464,4 +408,69 @@ void AP33772::printPDO()
         }
     }
     Serial.println("===============================================");
+}
+
+/**
+ * Add on for PPS Bench Power Supply
+ */
+
+/**
+ * @brief Get the number of power profile, include PPS if exist
+ */
+int AP33772::getNumPDO()
+{
+    return numPDO;
+}
+
+/**
+ * @brief Get index of PPS profile
+ */
+int AP33772::getPPSIndex()
+{
+    return PPSindex;
+}
+
+/**
+ * @brief MaxCurrent for fixed voltage PDO
+ * @return Current in mAmp
+ */
+int AP33772::getPDOMaxcurrent(uint8_t PDOindex)
+{
+    return pdoData[PDOindex].fixed.maxCurrent * 10;
+}
+
+/**
+ * @brief Get fixed PDO voltage
+ * @return Voltage in mVolt
+ */
+int AP33772::getPDOVoltage(uint8_t PDOindex)
+{
+    return pdoData[PDOindex].fixed.voltage * 50;
+}
+
+/**
+ * @brief Get PPS min votlage
+ * @return Voltage in mVolt
+ */
+int AP33772::getPPSMinVoltage(uint8_t PPSindex)
+{
+    return pdoData[PPSindex].pps.minVoltage * 100;
+}
+
+/**
+ * @brief Get PPS max votlage
+ * @return Voltage in mVolt
+ */
+int AP33772::getPPSMaxVoltage(uint8_t PPSindex)
+{
+    return pdoData[PPSindex].pps.maxVoltage * 100;
+}
+
+/**
+ * @brief Get PPS max current
+ * @return Current in mAmp
+ */
+int AP33772::getPPSMaxCurrent(uint8_t PPSindex)
+{
+    return pdoData[PPSindex].pps.maxCurrent * 50;
 }
