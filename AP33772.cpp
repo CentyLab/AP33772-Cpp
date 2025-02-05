@@ -332,7 +332,7 @@ int AP33772::readVoltage()
 int AP33772::readCurrent()
 {
     i2c_read(AP33772_ADDRESS, CMD_CURRENT, 1);
-    return readBuf[0] * 16; // I2C read return 24mA/LSB
+    return readBuf[0] * 24; // I2C read return 24mA/LSB
 }
 
 /**
