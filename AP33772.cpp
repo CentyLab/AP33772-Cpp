@@ -126,7 +126,7 @@ void AP33772::setVoltage(int targetVoltage)
                 tempIndex = i;
         }
         // Step 3: Compare found PDOs votlage and PPS max voltage
-        if (pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100)
+        if (!existPPS || pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100)
         {
             indexPDO = tempIndex;
             rdoData.fixed.objPosition = tempIndex + 1; // Index 0 to Index 1
