@@ -159,6 +159,7 @@ public:
   void begin();
   void setVoltage(int targetVoltage); // Unit in mV
   void setPDO(uint8_t PDOindex);
+  void setPPSPDO(uint8_t PPSindex, int targetVoltage, int maxCurrent);
   void setMaxCurrent(int targetMaxCurrent); // Unit in mA
   void setNTC(int TR25, int TR50, int TR75, int TR100);
   void setDeratingTemp(int temperature);
@@ -167,20 +168,22 @@ public:
   void writeRDO();
   int readVoltage();
   int readCurrent();
-  int getMaxCurrent() const;
+  int getMaxCurrent();
   int readTemp();
   void printPDO();
   void reset();
 
   int getNumPDO();
   int getPPSIndex();
+  int getPPSIndexByVoltageCurrent(int targetVoltage, int targetCurrent);
+  bool isIndexPPS(uint8_t index);
   int getPDOMaxcurrent(uint8_t PDOindex);
   int getPDOVoltage(uint8_t PDOindex);
   int getPPSMinVoltage(uint8_t PPSindex);
   int getPPSMaxVoltage(uint8_t PPSindex);
   int getPPSMaxCurrent(uint8_t PPSindex);
   void setSupplyVoltageCurrent(int targetVoltage, int targetCurrent);
-  byte existPPS = 0; // PPS flag for setVoltage()
+
 
 private:
   void i2c_read(byte slvAddr, byte cmdAddr, byte len);
@@ -192,7 +195,8 @@ private:
   byte indexPDO = 0;  // PDO index, start from index 0
   int reqPpsVolt = 0; // requested PPS voltage, unit:20mV
 
-  int8_t PPSindex = 8;
+  int8_t PPSindices[7] = {};
+  byte numPPS = 0;
 
   AP33772_STATUS_T ap33772_status = {0};
   EVENT_FLAG_T event_flag = {0};
