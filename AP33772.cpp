@@ -67,8 +67,8 @@ void AP33772::begin()
 
             if ((pdoData[i].byte3 & 0xF0) == 0xC0) // PPS profile found
             {
-                PPSindex = i; // Store index
-                existPPS = 1; // Turn on flag
+                PPSindices[numPPS] = i; // Store index
+                numPPS += 1;
             }
         }
     }
@@ -81,16 +81,9 @@ void AP33772::begin()
  */
 void AP33772::setSupplyVoltageCurrent(int targetVoltage, int targetCurrent)
 {
-    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
-    {
-        indexPDO = PPSindex;
-        reqPpsVolt = targetVoltage / 20;        // Unit in 20mV/LBS
-        rdoData.pps.objPosition = PPSindex + 1; // index 1
-        // rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
-        rdoData.pps.opCurrent = targetCurrent / 50; // Current limit
-        rdoData.pps.voltage = reqPpsVolt;
-        writeRDO();
-        return;
+    int8_t ppsIndex = getPPSIndexByVoltageCurrent(targetVoltage, targetCurrent);
+    if (ppsIndex != -1) {
+        setPPSPDO(ppsIndex, targetVoltage, targetCurrent);
     }
 }
 
@@ -101,50 +94,59 @@ void AP33772::setSupplyVoltageCurrent(int targetVoltage, int targetCurrent)
  */
 void AP33772::setVoltage(int targetVoltage)
 {
-    /*
-    Step 1: Check if PPS can satify request voltage
-    Step 2: Scan PDOs to see what is the lower closest voltage to request
-    Step 3: Compare found PDOs votlage and PPS max voltage
-    */
-    byte tempIndex = 0;
-    if ((existPPS) && (pdoData[PPSindex].pps.maxVoltage * 100 >= targetVoltage) && (pdoData[PPSindex].pps.minVoltage * 100 <= targetVoltage))
-    {
-        indexPDO = PPSindex;
-        reqPpsVolt = targetVoltage / 20;        // Unit in 20mV/LBS
-        rdoData.pps.objPosition = PPSindex + 1; // index 1
-        rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
-        rdoData.pps.voltage = reqPpsVolt;
-        writeRDO();
+    // Step 1: Check if PPS can satify request voltage
+    int8_t ppsIndex = getPPSIndexByVoltageCurrent(targetVoltage, 0);
+    if (ppsIndex != -1) {
+        setPPSPDO(ppsIndex, targetVoltage, getPPSMaxCurrent(ppsIndex));
         return;
     }
-    else
+
+    int8_t bestPDOIndex = -1; // Set -1 to indicate no PDO
+    int bestPPSVoltage = -1; // Set -1 to indicate PPS is not used
+    int bestPDOVoltageDist; // Tracks the distance between the target voltage and the voltage of the closest PDO
+
+    // Step 2: Scan PDOs to see what is the closest voltage to the request
+    for (byte i = 0; i < numPDO; i++)
     {
-        // Step 2: Scan PDOs to see what is the lower closest voltage to request
-        for (byte i = 0; i < numPDO - existPPS; i++)
+        int voltageDist;
+        bool isPPS = isIndexPPS(i);
+        int ppsVoltage = -1;
+
+        if (isPPS) 
         {
-            if (pdoData[i].fixed.voltage * 50 <= targetVoltage)
-                tempIndex = i;
+            int minVoltage = getPPSMinVoltage(i);
+            int maxVoltage = getPPSMaxVoltage(i);
+            ppsVoltage = maxVoltage; // Default to max voltage
+
+            // If minVoltage is closer to targetVoltage than maxVoltage set the ppsVoltage used to minVoltage
+            if (abs(minVoltage - targetVoltage) < abs(maxVoltage - targetVoltage)) {
+                ppsVoltage = minVoltage;
+            }
+            voltageDist = abs(ppsVoltage - targetVoltage);            
         }
-        // Step 3: Compare found PDOs votlage and PPS max voltage
-        if (!existPPS || pdoData[tempIndex].fixed.voltage * 50 > pdoData[PPSindex].pps.maxVoltage * 100)
+        else
         {
-            indexPDO = tempIndex;
-            rdoData.fixed.objPosition = tempIndex + 1; // Index 0 to Index 1
-            rdoData.fixed.maxCurrent = pdoData[indexPDO].fixed.maxCurrent;
-            rdoData.fixed.opCurrent = pdoData[indexPDO].fixed.maxCurrent;
-            writeRDO();
-            return;
+            voltageDist = abs(getPDOVoltage(i) - targetVoltage);
         }
-        else // If PPS voltage larger or equal to Fixed PDO
-        {
-            indexPDO = PPSindex;
-            reqPpsVolt = pdoData[PPSindex].pps.maxVoltage * 5; // Convert unit: 100mV -> 20mV
-            rdoData.pps.objPosition = PPSindex + 1;            // index 1
-            rdoData.pps.opCurrent = pdoData[PPSindex].pps.maxCurrent;
-            rdoData.pps.voltage = reqPpsVolt;
-            writeRDO();
-            return;
+
+        if (bestPDOIndex == -1 || voltageDist < bestPDOVoltageDist) {
+            bestPDOIndex = i;
+            bestPDOVoltageDist = voltageDist;
+            bestPPSVoltage = ppsVoltage;
         }
+    }
+
+    if (bestPDOIndex == -1) {
+        return;
+    }
+
+    // Step 3: Set PDO
+    // If no PPS voltage is defined, it is a fixed PDO
+    if (bestPPSVoltage == -1) {
+        setPDO(bestPDOIndex);
+    } else {
+        setPPSPDO(bestPDOIndex, bestPPSVoltage, getPPSMaxCurrent(bestPDOIndex));
+        
     }
 }
 
@@ -156,16 +158,44 @@ void AP33772::setPDO(uint8_t PDOindex)
 {
     uint8_t guarding;
 
-    if (PPSindex == 1)
-        {guarding = numPDO - 2;}
+    if (numPPS > 0)
+        {guarding = numPDO - numPPS - 1;}
     else
         guarding = numPDO - 1; // Example array[4] only exist index 0,1,2,3
 
     if (PDOindex <= guarding)
     {
+        indexPDO = PDOindex;
         rdoData.fixed.objPosition = PDOindex + 1; // Index 0 to Index 1
         rdoData.fixed.maxCurrent = pdoData[PDOindex].fixed.maxCurrent;
         rdoData.fixed.opCurrent = pdoData[PDOindex].fixed.maxCurrent;
+        writeRDO();
+    }
+}
+
+/**
+ * @brief Request PPS PDO profile at a target voltage and maximum current.
+ * @param targetVoltage in mV
+ * @param targetMaxCurrent in mA
+ */
+void AP33772::setPPSPDO(uint8_t PPSindex, int targetVoltage, int maxCurrent)
+{
+    uint8_t guarding;
+
+    if (numPPS == 0) {
+        return;
+    }
+    else {
+        guarding = numPDO - numPPS - 1; // Uses the assumption from setPDO that PPS PDOs are always at the end
+    }
+
+    if (PPSindex > guarding)
+    {
+        indexPDO = PPSindex;
+        reqPpsVolt = targetVoltage / 20;
+        rdoData.pps.objPosition = PPSindex + 1; // index 1
+        rdoData.pps.opCurrent = maxCurrent / 50; // 50mA/LBS
+        rdoData.pps.voltage = reqPpsVolt;
         writeRDO();
     }
 }
@@ -184,11 +214,11 @@ void AP33772::setMaxCurrent(int targetMaxCurrent)
         If yes, set new max current
         If no, report fault
     */
-    if (indexPDO == PPSindex)
+    if (isIndexPPS(indexPDO))
     {
-        if (targetMaxCurrent <= pdoData[PPSindex].pps.maxCurrent * 50)
+        if (targetMaxCurrent <= pdoData[indexPDO].pps.maxCurrent * 50)
         {
-            rdoData.pps.objPosition = PPSindex + 1;        // index 1
+            rdoData.pps.objPosition = indexPDO + 1;        // index 1
             rdoData.pps.opCurrent = targetMaxCurrent / 50; // 50mA/LBS
             rdoData.pps.voltage = reqPpsVolt;
             writeRDO();
@@ -339,11 +369,11 @@ int AP33772::readCurrent()
  * @brief Read maximum VBUS current
  * @return current in mA
  */
-int AP33772::getMaxCurrent() const
+int AP33772::getMaxCurrent()
 {
-    if (indexPDO == PPSindex)
+    if (isIndexPPS(indexPDO))
     {
-        return pdoData[PPSindex].pps.maxCurrent * 50;
+        return pdoData[indexPDO].pps.maxCurrent * 50;
     }
     else
     {
@@ -423,11 +453,42 @@ int AP33772::getNumPDO()
 }
 
 /**
- * @brief Get index of PPS profile
+ * @brief Get index of the first PPS profile
  */
 int AP33772::getPPSIndex()
 {
-    return PPSindex;
+    return PPSindices[0] ? numPPS > 0 : -1;
+}
+
+/**
+ * @brief Get the index of the first PPS PDO that can provide the target voltage and target current. 
+ * @param targetVoltage in mV
+ * @param targetCurrent in mA
+ * @return The index of the suitable PPS PDO. Returns -1 if no suitable PPS PDO exists
+ */
+int AP33772::getPPSIndexByVoltageCurrent(int targetVoltage, int targetCurrent)
+{
+    for (int i = 0; i < numPPS; i++) {
+        int8_t ppsIndex = PPSindices[i];
+        if (pdoData[ppsIndex].pps.maxVoltage * 100 >= targetVoltage && pdoData[ppsIndex].pps.minVoltage * 100 <= targetVoltage && pdoData[ppsIndex].pps.maxCurrent * 50 >= targetCurrent) {
+            return ppsIndex;
+        }
+    }
+    return -1;
+}
+
+/**
+ * @brief Checks if the provided index is a PPS PDO index
+ * @param index The PDO index to be checked
+ * @return True if the index is a PPS PDO, otherwise False
+ */
+bool AP33772::isIndexPPS(uint8_t index) {
+    for (int i = 0; i < numPPS; i++) {
+        if (PPSindices[i] == index) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
